@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Teachable Machine Audio Model</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/speech-commands@0.4.0/dist/speech-commands.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.2/FileSaver.min.js"></script>
+    <style>
+        #title {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 18px;
+            color: #333;
+            line-height: 1.5;
+        }
+        #label-container, #highest-sound {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 16px;
+            color: #333;
+            line-height: 1.5;
+        }
+        #highest-sound {
+            font-size: 20px; /* Larger font size for loudest sound */
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div id="title">Teachable Machine Audio Model</div>
+    <button type="button" onclick="init()">Start</button>
+    <div id="label-container"></div>
+    <div id="highest-sound" style="font-weight: bold; font-size: 18px; margin-top: 20px;"></div>
+
+    <script type="text/javascript">
+        const URL = "https://teachablemachine.withgoogle.com/models/2sHmpY56T/"; 
+        const soundData = {}; 
+        let csvContent = "Label,dBA,Timestamp\n";  // CSV Header
+        let recognizer;
+        let dataQueue = [];  // Queue to store data
+
+        async function createModel() {
+            const checkpointURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+            recognizer = speechCommands.create("BROWSER_FFT", undefined, checkpointURL, metadataURL);
+            await recognizer.ensureModelLoaded();
+            return recognizer;
+        }
+
+        async function init() {
+            recognizer = await createModel();
+            const classLabels = recognizer.wordLabels();
+            const labelContainer = document.getElementById("label-container");
+            const highestSoundContainer = document.getElementById("highest-sound");
+
+            // Initialize a container for each class label
+            classLabels.forEach(label => {
+                soundData[label] = { dba: 0, timestamp: "" };
+                labelContainer.appendChild(document.createElement("div"));
+            });
+
+            recognizer.listen(result => {
+                const scores = result.scores;
+                const currentTime = new Date().toLocaleString();
+
+                let highestSound = { label: "", dba: 0, timestamp: "" };
+
+                // Update each sound class data and determine the highest dBA
+                for (let i = 0; i < classLabels.length; i++) {
+                    const classPrediction = classLabels[i];
+                    soundData[classPrediction].dba = (scores[i] * 100).toFixed(2);
+                    soundData[classPrediction].timestamp = currentTime;
+
+                    const labelText = `${classPrediction}: ${soundData[classPrediction].dba} %, Timestamp: ${soundData[classPrediction].timestamp}`;
+                    labelContainer.childNodes[i].innerHTML = labelText;
+
+                    // Check if this class has the highest dBA
+                    if (parseFloat(soundData[classPrediction].dba) > highestSound.dba) {
+                        highestSound = { label: classPrediction, dba: soundData[classPrediction].dba, timestamp: currentTime };
+                    }
+                }
+
+                // Display only the loudest sound class name
+                highestSoundContainer.innerHTML = `Main sound source: ${highestSound.label}`;
+
+                // Add the highest sound data to the queue
+                dataQueue.push(`${highestSound.label},${highestSound.dba},${highestSound.timestamp}`);
+            }, {
+                includeSpectrogram: true,
+                probabilityThreshold: 0.75,
+                invokeCallbackOnNoiseAndUnknown: true,
+                overlapFactor: 0.50
+            });
+
+            // Save the file periodically without manual intervention
+            setInterval(() => {
+                if (dataQueue.length > 0) {
+                    // Append the queued data to csvContent
+                    csvContent += dataQueue.join("\n") + "\n";
+                    dataQueue = [];  // Clear the queue after appending
+
+                    // Create a Blob from the data
+                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+
+                    // Use FileSaver.js to save the file and ensure it overwrites
+                    saveAs(blob, "sound_log.csv");
+                }
+            }, 10000);  // Adjust the interval as needed
+        }
+    </script>
+</body>
+</html>
