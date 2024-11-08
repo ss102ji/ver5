@@ -33,12 +33,15 @@
 <button type="button" onclick="init()">Start</button>
 <div id="label-container"></div>
 <div id="main-sound-source">Main sound source: N/A</div>
+<button type="button" onclick="downloadCSV()">Download CSV</button>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/speech-commands@0.4.0/dist/speech-commands.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
 <script type="text/javascript">
     const URL = "https://teachablemachine.withgoogle.com/models/BAxc_3uIG/";
+    const csvData = [["Timestamp", "Main Sound Source"]]; // Initialize CSV data array with headers
 
     async function createModel() {
         const checkpointURL = URL + "model.json";
@@ -82,12 +85,46 @@
             }
 
             mainSoundSource.innerHTML = "Main sound source: " + mainClass;
+
+            // Log data every second
+            const timestamp = new Date().toLocaleTimeString();
+            csvData.push([timestamp, mainClass]);
         }, {
             includeSpectrogram: true,
             probabilityThreshold: 0.75,
             invokeCallbackOnNoiseAndUnknown: true,
             overlapFactor: 0.50
         });
+
+        // Automatically stop and save the data every second
+        setInterval(() => {
+            recognizer.stopListening();
+            recognizer.listen(result => {
+                const scores = result.scores;
+                let highestScore = 0;
+                let mainClass = "";
+                for (let i = 0; i < classLabels.length; i++) {
+                    if (result.scores[i] > highestScore) {
+                        highestScore = result.scores[i];
+                        mainClass = classLabels[i];
+                    }
+                }
+                const timestamp = new Date().toLocaleTimeString();
+                csvData.push([timestamp, mainClass]);
+            }, {
+                includeSpectrogram: true,
+                probabilityThreshold: 0.75,
+                invokeCallbackOnNoiseAndUnknown: true,
+                overlapFactor: 0.50
+            });
+        }, 1000); // Save data every second
+    }
+
+    // Function to download the CSV file
+    function downloadCSV() {
+        let csvContent = "data:text/csv;charset=utf-8," + csvData.map(e => e.join(",")).join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        saveAs(blob, "main_sound_source_data.csv");
     }
 </script>
 
