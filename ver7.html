@@ -8,16 +8,15 @@
 <style>
   body, div {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    text-align: center; /* Center-align all text */
+    text-align: center;
   }
   #title {
-    font-size: 24px; /* Increase font size for title */
+    font-size: 24px;
     color: #333;
     line-height: 1.5;
     font-weight: bold;
-    text-align: center;
     margin-top: 20px;
-    margin-bottom: 20px; /* Equal bottom margin for spacing */
+    margin-bottom: 20px;
   }
   #label-container {
     font-size: 16px;
@@ -30,11 +29,11 @@
   .main-sound-source, .time-stamp, .decibel-level, .noise-status {
     font-size: 20px;
     font-weight: bold;
-    margin-top: 20px; /* Equal top margin for spacing */
+    margin-top: 20px;
   }
   table {
     margin-top: 20px;
-    margin-bottom: 20px; /* Equal top and bottom margins for spacing */
+    margin-bottom: 20px;
     border-collapse: collapse;
     width: 60%;
   }
@@ -51,7 +50,6 @@
 </head>
 <body>
 <div id="title">Teachable Machine Audio Model</div>
-<button type="button" onclick="init()">Start</button>
 <div id="label-container"></div>
 
 <script type="text/javascript">
@@ -87,14 +85,13 @@ async function init() {
     const classCell = document.createElement("td");
     const scoreCell = document.createElement("td");
     classCell.innerHTML = label;
-    scoreCell.innerHTML = "0%"; // Default value, to be updated
+    scoreCell.innerHTML = "0%";
     row.appendChild(classCell);
     row.appendChild(scoreCell);
     table.appendChild(row);
   });
   labelContainer.appendChild(table);
 
-  // Create containers for additional information
   const mainSoundDiv = document.createElement("div");
   mainSoundDiv.className = "main-sound-source";
   labelContainer.appendChild(mainSoundDiv);
@@ -117,8 +114,8 @@ async function init() {
     let highestLabel = "";
     classLabels.forEach((label, i) => {
       const score = (scores[i] * 100).toFixed(2);
-      const row = table.rows[i + 1]; // Get the table row for this label
-      row.cells[1].innerHTML = `${score}%`; // Update score in table
+      const row = table.rows[i + 1];
+      row.cells[1].innerHTML = `${score}%`;
 
       if (score > highestScore) {
         highestScore = score;
@@ -126,10 +123,7 @@ async function init() {
       }
     });
 
-    const mainSoundSource = `Main sound source: ${highestLabel}`;
-    mainSoundDiv.innerHTML = mainSoundSource;
-
-    // Get current time and classify as day, evening, or night
+    mainSoundDiv.innerHTML = `Main sound source: ${highestLabel}`;
     const currentTime = new Date();
     const hours = currentTime.getHours();
     let timePeriod = "";
@@ -146,19 +140,12 @@ async function init() {
       disruptionThreshold = 55;
     }
 
-    // Display time with time period
     timeStampDiv.innerHTML = `Time: ${timePeriod} ${currentTime.toLocaleTimeString()}`;
-
-    // Simulate decibel level (for demonstration, we will use a random value)
-    const decibelLevel = Math.floor(Math.random() * 100); // Random dBA for simulation
+    const decibelLevel = Math.floor(Math.random() * 100);
     decibelLevelDiv.innerHTML = `Decibel level: ${decibelLevel} dBA`;
-
-    // Determine if the environment is "Normal" or "Disruption"
-    const noiseStatus = decibelLevel > disruptionThreshold ? "Disruption" : "Normal";
-    noiseStatusDiv.innerHTML = noiseStatus;
+    noiseStatusDiv.innerHTML = decibelLevel > disruptionThreshold ? "Disruption" : "Normal";
   }
 
-  // Listen to audio and update results
   recognizer.listen(result => {
     recognizer.scores = result.scores;
   }, {
@@ -168,12 +155,10 @@ async function init() {
     overlapFactor: 0.50
   });
 
-  // Update results every 5 seconds
   setInterval(updateResults, 5000);
-
-  // Stop the recognition in 60 seconds.
-  // setTimeout(() => recognizer.stopListening(), 60000);
 }
+
+init(); // Automatically call init to start the model
 </script>
 </body>
 </html>
