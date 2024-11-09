@@ -140,7 +140,7 @@ async function init() {
       disruptionThreshold = 55;
     }
 
-    timeStampDiv.innerHTML = `Time: ${timePeriod} ${currentTime.toLocaleTimeString()}`;
+    timeStampDiv.innerHTML = `Time: ${timePeriod}, ${currentTime.toLocaleTimeString()}`;
     const decibelLevel = Math.floor(Math.random() * 100);
     decibelLevelDiv.innerHTML = `Decibel level: ${decibelLevel} dBA`;
     noiseStatusDiv.innerHTML = decibelLevel > disruptionThreshold ? "Disruption" : "Normal";
