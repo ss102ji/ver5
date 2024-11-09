@@ -59,14 +59,14 @@
                 labelContainer.appendChild(document.createElement("div"));
             });
 
-            recognizer.listen(result => {
-                const scores = result.scores;
+            function updateResults() {
+                const scores = recognizer.scores;
                 let highestScore = -1;
                 let highestLabel = "";
                 const currentTime = new Date().toLocaleTimeString();
 
                 classLabels.forEach((label, i) => {
-                    const score = (result.scores[i] * 100).toFixed(2);
+                    const score = (recognizer.scores[i] * 100).toFixed(2);
                     const classPrediction = `${label}: ${score}%`;
                     labelContainer.childNodes[i].innerHTML = classPrediction;
 
@@ -93,6 +93,10 @@
                     labelContainer.appendChild(timeStampDiv);
                 }
                 timeStampDiv.innerHTML = `Time: ${currentTime}`;
+            }
+
+            recognizer.listen(result => {
+                recognizer.scores = result.scores;
             }, {
                 includeSpectrogram: true,
                 probabilityThreshold: 0.75,
@@ -100,8 +104,11 @@
                 overlapFactor: 0.50
             });
 
-            // Stop the recognition in 5 seconds.
-            // setTimeout(() => recognizer.stopListening(), 5000);
+            // Update results every 5 seconds
+            setInterval(updateResults, 5000);
+
+            // Stop the recognition in 60 seconds.
+            // setTimeout(() => recognizer.stopListening(), 60000);
         }
     </script>
 </body>
