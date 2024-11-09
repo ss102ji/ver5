@@ -24,6 +24,10 @@
             font-weight: bold;
             margin-top: 10px;
         }
+        .time-stamp {
+            font-size: 16px;
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body>
@@ -63,6 +67,7 @@
                 const scores = result.scores;
                 let highestScore = -1;
                 let highestLabel = "";
+                const currentTime = new Date().toLocaleTimeString();
 
                 classLabels.forEach((label, i) => {
                     const score = (result.scores[i] * 100).toFixed(2);
@@ -84,6 +89,14 @@
                     labelContainer.appendChild(mainSoundDiv);
                 }
                 mainSoundDiv.innerHTML = mainSoundSource;
+
+                let timeStampDiv = document.querySelector(".time-stamp");
+                if (!timeStampDiv) {
+                    timeStampDiv = document.createElement("div");
+                    timeStampDiv.className = "time-stamp";
+                    labelContainer.appendChild(timeStampDiv);
+                }
+                timeStampDiv.innerHTML = `Time: ${currentTime}`;
             }, {
                 includeSpectrogram: true,
                 probabilityThreshold: 0.75,
