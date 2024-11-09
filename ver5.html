@@ -5,93 +5,85 @@
     <title>Teachable Machine Audio Model</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/speech-commands@0.4.0/dist/speech-commands.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.2/FileSaver.min.js"></script>
     <style>
-        #title {
+        body, div {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+        #title {
             font-size: 18px;
             color: #333;
             line-height: 1.5;
         }
-        #label-container, #highest-sound {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        #label-container {
             font-size: 16px;
             color: #333;
             line-height: 1.5;
         }
-        #highest-sound {
+        .main-sound-source {
             font-size: 20px;
             font-weight: bold;
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
     <div id="title">Teachable Machine Audio Model</div>
-    <button type="button" id="start-btn" onclick="startRecording()">Start</button>
-    <button type="button" id="save-btn" onclick="saveRecording()" disabled>Save</button>
+    <button type="button" onclick="init()">Start</button>
     <div id="label-container"></div>
-    <div id="highest-sound" style="font-weight: bold; font-size: 18px; margin-top: 20px;"></div>
 
     <script type="text/javascript">
-        const URL = "https://teachablemachine.withgoogle.com/models/2sHmpY56T/";
-        const soundData = {};
-        let csvContent = "Label,dBA,Timestamp\n";
-        let recognizer;
-        let isRecording = false;
-        let workbook;
+        const URL = "https://teachablemachine.withgoogle.com/models/relHEb2HD/";
 
         async function createModel() {
             const checkpointURL = URL + "model.json";
             const metadataURL = URL + "metadata.json";
-            recognizer = speechCommands.create("BROWSER_FFT", undefined, checkpointURL, metadataURL);
+
+            const recognizer = speechCommands.create(
+                "BROWSER_FFT",
+                undefined,
+                checkpointURL,
+                metadataURL
+            );
+
             await recognizer.ensureModelLoaded();
+
             return recognizer;
         }
 
-        async function startRecording() {
-            recognizer = await createModel();
+        async function init() {
+            const recognizer = await createModel();
             const classLabels = recognizer.wordLabels();
             const labelContainer = document.getElementById("label-container");
-            const highestSoundContainer = document.getElementById("highest-sound");
-
-            // Initialize a container for each class label
-            classLabels.forEach(label => {
-                soundData[label] = { dba: 0, timestamp: "" };
+            
+            classLabels.forEach((label, i) => {
                 labelContainer.appendChild(document.createElement("div"));
             });
 
             recognizer.listen(result => {
-                if (!isRecording) return;
-
                 const scores = result.scores;
-                const currentTime = new Date().toLocaleString();
+                let highestScore = -1;
+                let highestLabel = "";
 
-                let highestSound = { label: "", dba: 0, timestamp: "" };
+                classLabels.forEach((label, i) => {
+                    const score = (result.scores[i] * 100).toFixed(2);
+                    const classPrediction = `${label}: ${score}%`;
+                    labelContainer.childNodes[i].innerHTML = classPrediction;
 
-                // Update each sound class data and determine the highest dBA
-                for (let i = 0; i < classLabels.length; i++) {
-                    const classPrediction = classLabels[i];
-                    soundData[classPrediction].dba = (scores[i] * 100).toFixed(2);
-                    soundData[classPrediction].timestamp = currentTime;
-
-                    const labelText = `${classPrediction}: ${soundData[classPrediction].dba} %, Timestamp: ${soundData[classPrediction].timestamp}`;
-                    labelContainer.childNodes[i].innerHTML = labelText;
-
-                    // Check if this class has the highest dBA
-                    if (parseFloat(soundData[classPrediction].dba) > highestSound.dba) {
-                        highestSound = { label: classPrediction, dba: soundData[classPrediction].dba, timestamp: currentTime };
+                    if (score > highestScore) {
+                        highestScore = score;
+                        highestLabel = label;
                     }
+                });
+
+                const mainSoundSource = `Main sound source: ${highestLabel} (${highestScore}%)`;
+                let mainSoundDiv = document.querySelector(".main-sound-source");
+
+                if (!mainSoundDiv) {
+                    mainSoundDiv = document.createElement("div");
+                    mainSoundDiv.className = "main-sound-source";
+                    labelContainer.appendChild(mainSoundDiv);
                 }
-
-                // Display only the loudest sound class name
-                highestSoundContainer.innerHTML = `Main sound source: ${highestSound.label}`;
-
-                // Add the highest sound data to the CSV content
-                csvContent += `${highestSound.label},${highestSound.dba},${highestSound.timestamp}\n`;
-
-                // Append data to the existing Excel file
-                saveToExcel(csvContent, 'soundlog.xlsx', false);
+                mainSoundDiv.innerHTML = mainSoundSource;
             }, {
                 includeSpectrogram: true,
                 probabilityThreshold: 0.75,
@@ -99,39 +91,8 @@
                 overlapFactor: 0.50
             });
 
-            isRecording = true;
-            document.getElementById("start-btn").disabled = true;
-            document.getElementById("save-btn").disabled = false;
-
-            // Initialize workbook
-            workbook = XLSX.utils.book_new();
-        }
-
-        function saveToExcel(csvData, fileName, isFinal = true) {
-            const worksheet = XLSX.utils.aoa_to_sheet(csvData.split('\n').map(row => row.split(',')));
-            if (workbook.SheetNames.length === 0) {
-                XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
-            } else {
-                XLSX.utils.sheet_add_aoa(workbook.Sheets["Sheet1"], csvData.split('\n').map(row => row.split(',')), {origin: -1});
-            }
-
-            if (isFinal) {
-                XLSX.writeFile(workbook, fileName);
-            }
-        }
-
-        function saveRecording() {
-            if (isRecording) {
-                recognizer.stopListening();
-                isRecording = false;
-            }
-
-            // Final save data to Excel file
-            saveToExcel(csvContent, 'soundlog.xlsx', true);
-
-            // Enable start button and disable save button
-            document.getElementById("start-btn").disabled = false;
-            document.getElementById("save-btn").disabled = true;
+            // Stop the recognition in 5 seconds.
+            // setTimeout(() => recognizer.stopListening(), 5000);
         }
     </script>
 </body>
