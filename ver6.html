@@ -1,206 +1,136 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
-    <title>Decibel Meter</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/speech-commands@0.4.0/dist/speech-commands.min.js"></script>
-    <style>
-        body, div {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-        }
-        #title {
-            font-size: 18px;
-            color: #333;
-            line-height: 1.5;
-        }
-        #label-container {
-            font-size: 16px;
-            color: #333;
-            line-height: 1.5;
-        }
-        .main-sound-source, .time-stamp, .decibel-level, .noise-status {
-            font-size: 20px;
-            font-weight: bold;
-            margin-top: 10px;
-        }
-    </style>
+<meta charset="UTF-8">
+<title>Teachable Machine Audio Model</title>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/speech-commands@0.4.0/dist/speech-commands.min.js"></script>
+<style>
+  body, div {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  #title {
+    font-size: 18px;
+    color: #333;
+    line-height: 1.5;
+  }
+  #label-container {
+    font-size: 16px;
+    color: #333;
+    line-height: 1.5;
+  }
+  .main-sound-source, .time-stamp, .decibel-level, .noise-status {
+    font-size: 20px;
+    font-weight: bold;
+    margin-top: 10px;
+  }
+</style>
 </head>
 <body>
-    <div id="title">Decibel Meter</div>
-    <button type="button" onclick="init()">Start</button>
-    <div id="label-container"></div>
+<div id="title">Teachable Machine Audio Model</div>
+<button type="button" onclick="init()">Start</button>
+<div id="label-container"></div>
 
-    <script type="text/javascript">
-        const URL = "https://teachablemachine.withgoogle.com/models/relHEb2HD/";
-        let audioContext;
-        let analyser;
-        let microphone;
-        let javascriptNode;
-        let decibelAWeighted = 0;
+<script type="text/javascript">
+const URL = "https://teachablemachine.withgoogle.com/models/relHEb2HD/";
 
-        async function createModel() {
-            const checkpointURL = URL + "model.json";
-            const metadataURL = URL + "metadata.json";
+async function createModel() {
+  const checkpointURL = URL + "model.json";
+  const metadataURL = URL + "metadata.json";
+  const recognizer = speechCommands.create("BROWSER_FFT", undefined, checkpointURL, metadataURL);
+  await recognizer.ensureModelLoaded();
+  return recognizer;
+}
 
-            const recognizer = speechCommands.create(
-                "BROWSER_FFT",
-                undefined,
-                checkpointURL,
-                metadataURL
-            );
+async function init() {
+  const recognizer = await createModel();
+  const classLabels = recognizer.wordLabels();
+  const labelContainer = document.getElementById("label-container");
 
-            await recognizer.ensureModelLoaded();
+  // Create label containers for each class
+  classLabels.forEach(() => {
+    labelContainer.appendChild(document.createElement("div"));
+  });
 
-            return recognizer;
-        }
+  // Create containers for additional information
+  const mainSoundDiv = document.createElement("div");
+  mainSoundDiv.className = "main-sound-source";
+  labelContainer.appendChild(mainSoundDiv);
 
-        async function init() {
-            const recognizer = await createModel();
-            const classLabels = recognizer.wordLabels();
-            const labelContainer = document.getElementById("label-container");
-            
-            classLabels.forEach((label, i) => {
-                labelContainer.appendChild(document.createElement("div"));
-            });
+  const timeStampDiv = document.createElement("div");
+  timeStampDiv.className = "time-stamp";
+  labelContainer.appendChild(timeStampDiv);
 
-            function updateResults() {
-                const scores = recognizer.scores;
-                let highestScore = -1;
-                let highestLabel = "";
-                const now = new Date();
-                const currentTime = now.toLocaleTimeString();
-                const currentHour = now.getHours();
-                const timeOfDay = getTimeOfDay(currentHour);
+  const decibelLevelDiv = document.createElement("div");
+  decibelLevelDiv.className = "decibel-level";
+  labelContainer.appendChild(decibelLevelDiv);
 
-                classLabels.forEach((label, i) => {
-                    const score = (recognizer.scores[i] * 100).toFixed(2);
-                    const classPrediction = `${label}: ${score}%`;
-                    labelContainer.childNodes[i].innerHTML = classPrediction;
+  const noiseStatusDiv = document.createElement("div");
+  noiseStatusDiv.className = "noise-status";
+  labelContainer.appendChild(noiseStatusDiv);
 
-                    if (score > highestScore) {
-                        highestScore = score;
-                        highestLabel = label;
-                    }
-                });
+  function updateResults() {
+    const scores = recognizer.scores;
+    let highestScore = -1;
+    let highestLabel = "";
+    classLabels.forEach((label, i) => {
+      const score = (scores[i] * 100).toFixed(2);
+      const classPrediction = `${label}: ${score}%`;
+      labelContainer.childNodes[i].innerHTML = classPrediction;
+      if (score > highestScore) {
+        highestScore = score;
+        highestLabel = label;
+      }
+    });
 
-                const mainSoundSource = `Main sound source: ${highestLabel}`;
-                let mainSoundDiv = document.querySelector(".main-sound-source");
+    const mainSoundSource = `Main sound source: ${highestLabel}`;
+    mainSoundDiv.innerHTML = mainSoundSource;
 
-                if (!mainSoundDiv) {
-                    mainSoundDiv = document.createElement("div");
-                    mainSoundDiv.className = "main-sound-source";
-                    labelContainer.appendChild(mainSoundDiv);
-                }
-                mainSoundDiv.innerHTML = mainSoundSource;
+    // Get current time and classify as day, evening, or night
+    const currentTime = new Date();
+    const hours = currentTime.getHours();
+    let timePeriod = "";
+    let disruptionThreshold = 0;
 
-                let timeStampDiv = document.querySelector(".time-stamp");
-                if (!timeStampDiv) {
-                    timeStampDiv = document.createElement("div");
-                    timeStampDiv.className = "time-stamp";
-                    labelContainer.appendChild(timeStampDiv);
-                }
-                timeStampDiv.innerHTML = `${timeOfDay}, Time: ${currentTime}`;
+    if (hours >= 7 && hours < 19) {
+      timePeriod = "Day";
+      disruptionThreshold = 65;
+    } else if (hours >= 19 && hours < 23) {
+      timePeriod = "Evening";
+      disruptionThreshold = 60;
+    } else {
+      timePeriod = "Night";
+      disruptionThreshold = 55;
+    }
 
-                let decibelDiv = document.querySelector(".decibel-level");
-                if (!decibelDiv) {
-                    decibelDiv = document.createElement("div");
-                    decibelDiv.className = "decibel-level";
-                    labelContainer.appendChild(decibelDiv);
-                }
-                decibelDiv.innerHTML = `Decibel Level: ${decibelAWeighted.toFixed(2)} dBA`;
+    // Display time with time period
+    timeStampDiv.innerHTML = `Time: ${timePeriod} ${currentTime.toLocaleTimeString()}`;
 
-                let noiseStatusDiv = document.querySelector(".noise-status");
-                if (!noiseStatusDiv) {
-                    noiseStatusDiv = document.createElement("div");
-                    noiseStatusDiv.className = "noise-status";
-                    labelContainer.appendChild(noiseStatusDiv);
-                }
-                noiseStatusDiv.innerHTML = checkNoiseLevel(timeOfDay, decibelAWeighted);
-            }
+    // Simulate decibel level (for demonstration, we will use a random value)
+    const decibelLevel = Math.floor(Math.random() * 100); // Random dBA for simulation
+    decibelLevelDiv.innerHTML = `Decibel level: ${decibelLevel} dBA`;
 
-            recognizer.listen(result => {
-                recognizer.scores = result.scores;
-            }, {
-                includeSpectrogram: true,
-                probabilityThreshold: 0.75,
-                invokeCallbackOnNoiseAndUnknown: true,
-                overlapFactor: 0.50
-            });
+    // Determine if the environment is "Normal" or "Disruption"
+    const noiseStatus = decibelLevel > disruptionThreshold ? "Disruption" : "Normal";
+    noiseStatusDiv.innerHTML = noiseStatus;
+  }
 
-            // Start measuring decibels
-            startDecibelMeter();
+  // Listen to audio and update results
+  recognizer.listen(result => {
+    recognizer.scores = result.scores;
+  }, {
+    includeSpectrogram: true,
+    probabilityThreshold: 0.75,
+    invokeCallbackOnNoiseAndUnknown: true,
+    overlapFactor: 0.50
+  });
 
-            // Update results every 5 seconds
-            setInterval(updateResults, 5000);
+  // Update results every 5 seconds
+  setInterval(updateResults, 5000);
 
-            // Stop the recognition in 60 seconds.
-            // setTimeout(() => recognizer.stopListening(), 60000);
-        }
-
-        function startDecibelMeter() {
-            if (navigator.mediaDevices.getUserMedia) {
-                navigator.mediaDevices.getUserMedia({ audio: true })
-                    .then(stream => {
-                        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                        analyser = audioContext.createAnalyser();
-                        microphone = audioContext.createMediaStreamSource(stream);
-                        javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
-
-                        analyser.smoothingTimeConstant = 0.8;
-                        analyser.fftSize = 1024;
-
-                        microphone.connect(analyser);
-                        analyser.connect(javascriptNode);
-                        javascriptNode.connect(audioContext.destination);
-                        
-                        javascriptNode.onaudioprocess = function() {
-                            let array = new Uint8Array(analyser.frequencyBinCount);
-                            analyser.getByteFrequencyData(array);
-                            let values = 0;
-
-                            for (let i = 0; i < array.length; i++) {
-                                values += array[i];
-                            }
-
-                            let average = values / array.length;
-                            let decibel = 20 * (Math.log10(average) - Math.log10(128));
-                            decibelAWeighted = applyAWeighting(decibel);
-                        };
-                    })
-                    .catch(err => {
-                        console.error('The following getUserMedia error occurred: ' + err);
-                    });
-            } else {
-                console.error('getUserMedia not supported on your browser!');
-            }
-        }
-
-        function applyAWeighting(dB) {
-            return dB + 2.0; // Adjust this value for more accuracy
-        }
-
-        function getTimeOfDay(currentHour) {
-            if (currentHour >= 7 && currentHour < 19) {
-                return 'Day';
-            } else if (currentHour >= 19 && currentHour < 23) {
-                return 'Evening';
-            } else {
-                return 'Night';
-            }
-        }
-
-        function checkNoiseLevel(timeOfDay, decibelAWeighted) {
-            if (timeOfDay === 'Day' && decibelAWeighted > 65) {
-                return 'Disruption';
-            } else if (timeOfDay === 'Evening' && decibelAWeighted > 60) {
-                return 'Disruption';
-            } else if (timeOfDay === 'Night' && decibelAWeighted > 55) {
-                return 'Disruption';
-            } else {
-                return 'Normal';
-            }
-        }
-    </script>
+  // Stop the recognition in 60 seconds.
+  // setTimeout(() => recognizer.stopListening(), 60000);
+}
+</script>
 </body>
 </html>
