@@ -99,9 +99,15 @@
             document.getElementById("start-btn").disabled = true;
             document.getElementById("save-btn").disabled = false;
 
-            // Create a new Excel file with initial data
-            const initialBlob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            saveAs(initialBlob, "soundlog.xlsx");
+            // Save initial data to Excel file
+            saveToExcel(csvContent, 'soundlog.xlsx');
+        }
+
+        function saveToExcel(csvData, fileName) {
+            const worksheet = XLSX.utils.aoa_to_sheet([csvData.split('\n').map(row => row.split(','))]);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+            XLSX.writeFile(workbook, fileName);
         }
 
         function saveRecording() {
@@ -110,9 +116,8 @@
                 isRecording = false;
             }
 
-            // Append new data to the existing Excel file
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            saveAs(blob, "soundlog.xlsx");
+            // Append data to existing Excel file
+            saveToExcel(csvContent, 'soundlog.xlsx');
 
             // Enable start button and disable save button
             document.getElementById("start-btn").disabled = false;
