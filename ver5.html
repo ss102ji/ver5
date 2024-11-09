@@ -88,6 +88,9 @@
 
                 // Add the highest sound data to the CSV content
                 csvContent += `${highestSound.label},${highestSound.dba},${highestSound.timestamp}\n`;
+                
+                // Save data to Excel file continuously
+                saveToExcel(csvContent, 'soundlog.xlsx', false);
             }, {
                 includeSpectrogram: true,
                 probabilityThreshold: 0.75,
@@ -98,16 +101,18 @@
             isRecording = true;
             document.getElementById("start-btn").disabled = true;
             document.getElementById("save-btn").disabled = false;
-
-            // Save initial data to Excel file
-            saveToExcel(csvContent, 'soundlog.xlsx');
         }
 
-        function saveToExcel(csvData, fileName) {
+        function saveToExcel(csvData, fileName, isFinal = true) {
             const worksheet = XLSX.utils.aoa_to_sheet([csvData.split('\n').map(row => row.split(','))]);
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
-            XLSX.writeFile(workbook, fileName);
+
+            if (isFinal) {
+                XLSX.writeFile(workbook, fileName);
+            } else {
+                XLSX.writeFile(workbook, fileName, { bookType: "xlsx", type: "binary" });
+            }
         }
 
         function saveRecording() {
@@ -116,8 +121,8 @@
                 isRecording = false;
             }
 
-            // Append data to existing Excel file
-            saveToExcel(csvContent, 'soundlog.xlsx');
+            // Final save data to Excel file
+            saveToExcel(csvContent, 'soundlog.xlsx', true);
 
             // Enable start button and disable save button
             document.getElementById("start-btn").disabled = false;
