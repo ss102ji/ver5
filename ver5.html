@@ -39,6 +39,7 @@
         let csvContent = "Label,dBA,Timestamp\n";
         let recognizer;
         let isRecording = false;
+        let workbook;
 
         async function createModel() {
             const checkpointURL = URL + "model.json";
@@ -88,8 +89,8 @@
 
                 // Add the highest sound data to the CSV content
                 csvContent += `${highestSound.label},${highestSound.dba},${highestSound.timestamp}\n`;
-                
-                // Save data to Excel file continuously
+
+                // Append data to the existing Excel file
                 saveToExcel(csvContent, 'soundlog.xlsx', false);
             }, {
                 includeSpectrogram: true,
@@ -101,17 +102,21 @@
             isRecording = true;
             document.getElementById("start-btn").disabled = true;
             document.getElementById("save-btn").disabled = false;
+
+            // Initialize workbook
+            workbook = XLSX.utils.book_new();
         }
 
         function saveToExcel(csvData, fileName, isFinal = true) {
-            const worksheet = XLSX.utils.aoa_to_sheet([csvData.split('\n').map(row => row.split(','))]);
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+            const worksheet = XLSX.utils.aoa_to_sheet(csvData.split('\n').map(row => row.split(',')));
+            if (workbook.SheetNames.length === 0) {
+                XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+            } else {
+                XLSX.utils.sheet_add_aoa(workbook.Sheets["Sheet1"], csvData.split('\n').map(row => row.split(',')), {origin: -1});
+            }
 
             if (isFinal) {
                 XLSX.writeFile(workbook, fileName);
-            } else {
-                XLSX.writeFile(workbook, fileName, { bookType: "xlsx", type: "binary" });
             }
         }
 
