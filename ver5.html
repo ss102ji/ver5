@@ -1,132 +1,120 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Audio Classification Model</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <title>Teachable Machine Audio Model</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/speech-commands@0.4.0/dist/speech-commands.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.2/FileSaver.min.js"></script>
     <style>
-        body {
-            font-family: 'Inter', Arial, sans-serif;
-            text-align: center;
-            margin-top: 50px;
+        #title {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 18px;
+            color: #333;
+            line-height: 1.5;
         }
-        #label-container div {
-            margin: 5px 0;
-            font-size: 1rem;
+        #label-container, #highest-sound {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 16px;
+            color: #333;
+            line-height: 1.5;
         }
-        #main-sound-source {
-            font-size: 1.2rem;
+        #highest-sound {
+            font-size: 20px;
             font-weight: bold;
-            margin-top: 20px;
-        }
-        button {
-            padding: 10px 20px;
-            font-size: 1rem;
-            cursor: pointer;
         }
     </style>
 </head>
 <body>
+    <div id="title">Teachable Machine Audio Model</div>
+    <button type="button" id="start-btn" onclick="startRecording()">Start</button>
+    <button type="button" id="save-btn" onclick="saveRecording()" disabled>Save</button>
+    <div id="label-container"></div>
+    <div id="highest-sound" style="font-weight: bold; font-size: 18px; margin-top: 20px;"></div>
 
-<div>Audio Classification Model</div>
-<button type="button" onclick="init()">Start</button>
-<div id="label-container"></div>
-<div id="main-sound-source">Main sound source: N/A</div>
-<button type="button" onclick="downloadCSV()">Download CSV</button>
+    <script type="text/javascript">
+        const URL = "https://teachablemachine.withgoogle.com/models/2sHmpY56T/";
+        const soundData = {};
+        let csvContent = "Label,dBA,Timestamp\n";
+        let recognizer;
+        let isRecording = false;
 
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/speech-commands@0.4.0/dist/speech-commands.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-
-<script type="text/javascript">
-    const URL = "https://teachablemachine.withgoogle.com/models/BAxc_3uIG/";
-    const csvData = [["Timestamp", "Main Sound Source"]]; // Initialize CSV data array with headers
-
-    async function createModel() {
-        const checkpointURL = URL + "model.json";
-        const metadataURL = URL + "metadata.json";
-
-        const recognizer = speechCommands.create(
-            "BROWSER_FFT",
-            undefined,
-            checkpointURL,
-            metadataURL
-        );
-
-        await recognizer.ensureModelLoaded();
-        return recognizer;
-    }
-
-    async function init() {
-        const recognizer = await createModel();
-        const classLabels = recognizer.wordLabels();
-        const labelContainer = document.getElementById("label-container");
-        const mainSoundSource = document.getElementById("main-sound-source");
-
-        for (let i = 0; i < classLabels.length; i++) {
-            labelContainer.appendChild(document.createElement("div"));
+        async function createModel() {
+            const checkpointURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+            recognizer = speechCommands.create("BROWSER_FFT", undefined, checkpointURL, metadataURL);
+            await recognizer.ensureModelLoaded();
+            return recognizer;
         }
 
-        recognizer.listen(result => {
-            const scores = result.scores;
+        async function startRecording() {
+            recognizer = await createModel();
+            const classLabels = recognizer.wordLabels();
+            const labelContainer = document.getElementById("label-container");
+            const highestSoundContainer = document.getElementById("highest-sound");
 
-            let highestScore = 0;
-            let mainClass = "";
+            // Initialize a container for each class label
+            classLabels.forEach(label => {
+                soundData[label] = { dba: 0, timestamp: "" };
+                labelContainer.appendChild(document.createElement("div"));
+            });
 
-            for (let i = 0; i < classLabels.length; i++) {
-                const classPrediction = classLabels[i] + ": " + result.scores[i].toFixed(2);
-                labelContainer.childNodes[i].innerHTML = classPrediction;
-
-                if (result.scores[i] > highestScore) {
-                    highestScore = result.scores[i];
-                    mainClass = classLabels[i];
-                }
-            }
-
-            mainSoundSource.innerHTML = "Main sound source: " + mainClass;
-
-            // Log data every second
-            const timestamp = new Date().toLocaleTimeString();
-            csvData.push([timestamp, mainClass]);
-        }, {
-            includeSpectrogram: true,
-            probabilityThreshold: 0.75,
-            invokeCallbackOnNoiseAndUnknown: true,
-            overlapFactor: 0.50
-        });
-
-        // Automatically stop and save the data every second
-        setInterval(() => {
-            recognizer.stopListening();
             recognizer.listen(result => {
+                if (!isRecording) return;
+
                 const scores = result.scores;
-                let highestScore = 0;
-                let mainClass = "";
+                const currentTime = new Date().toLocaleString();
+
+                let highestSound = { label: "", dba: 0, timestamp: "" };
+
+                // Update each sound class data and determine the highest dBA
                 for (let i = 0; i < classLabels.length; i++) {
-                    if (result.scores[i] > highestScore) {
-                        highestScore = result.scores[i];
-                        mainClass = classLabels[i];
+                    const classPrediction = classLabels[i];
+                    soundData[classPrediction].dba = (scores[i] * 100).toFixed(2);
+                    soundData[classPrediction].timestamp = currentTime;
+
+                    const labelText = `${classPrediction}: ${soundData[classPrediction].dba} %, Timestamp: ${soundData[classPrediction].timestamp}`;
+                    labelContainer.childNodes[i].innerHTML = labelText;
+
+                    // Check if this class has the highest dBA
+                    if (parseFloat(soundData[classPrediction].dba) > highestSound.dba) {
+                        highestSound = { label: classPrediction, dba: soundData[classPrediction].dba, timestamp: currentTime };
                     }
                 }
-                const timestamp = new Date().toLocaleTimeString();
-                csvData.push([timestamp, mainClass]);
+
+                // Display only the loudest sound class name
+                highestSoundContainer.innerHTML = `Main sound source: ${highestSound.label}`;
+
+                // Add the highest sound data to the CSV content
+                csvContent += `${highestSound.label},${highestSound.dba},${highestSound.timestamp}\n`;
             }, {
                 includeSpectrogram: true,
                 probabilityThreshold: 0.75,
                 invokeCallbackOnNoiseAndUnknown: true,
                 overlapFactor: 0.50
             });
-        }, 1000); // Save data every second
-    }
 
-    // Function to download the CSV file
-    function downloadCSV() {
-        let csvContent = "data:text/csv;charset=utf-8," + csvData.map(e => e.join(",")).join("\n");
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        saveAs(blob, "main_sound_source_data.csv");
-    }
-</script>
+            isRecording = true;
+            document.getElementById("start-btn").disabled = true;
+            document.getElementById("save-btn").disabled = false;
+        }
 
+        function saveRecording() {
+            if (isRecording) {
+                recognizer.stopListening();
+                isRecording = false;
+            }
+
+            // Create a Blob from the data
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+
+            // Save the file
+            saveAs(blob, "sound_log.csv");
+
+            // Enable start button and disable save button
+            document.getElementById("start-btn").disabled = false;
+            document.getElementById("save-btn").disabled = true;
+        }
+    </script>
 </body>
 </html>
