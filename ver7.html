@@ -100,6 +100,10 @@ async function init() {
   timeStampDiv.className = "time-stamp";
   labelContainer.appendChild(timeStampDiv);
 
+  const dateDiv = document.createElement("div");
+  dateDiv.className = "date";
+  labelContainer.appendChild(dateDiv);
+
   const decibelLevelDiv = document.createElement("div");
   decibelLevelDiv.className = "decibel-level";
   labelContainer.appendChild(decibelLevelDiv);
@@ -141,6 +145,8 @@ async function init() {
     }
 
     timeStampDiv.innerHTML = `Time: ${timePeriod}, ${currentTime.toLocaleTimeString()}`;
+    dateDiv.innerHTML = `Date: ${currentTime.toLocaleDateString()} (${currentTime.toLocaleString('en-US', { weekday: 'long' })})`;
+
     const decibelLevel = Math.floor(Math.random() * 100);
     decibelLevelDiv.innerHTML = `Decibel level: ${decibelLevel} dBA`;
     noiseStatusDiv.innerHTML = decibelLevel > disruptionThreshold ? "Disruption" : "Normal";
