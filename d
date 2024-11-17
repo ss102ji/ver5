@@ -1,6 +1,14 @@
+git clone https://github.com/ss102jing/airgrp1.1
+cd d
+
+pip install python-pptx
+
+
+from pptx import Presentation
+from pptx.util import Inches, Pt
+from pptx.enum.shapes import MSO_SHAPE
 from pptx.dml.color import RGBColor
 
-# Retry creating the PowerPoint with the corrected imports
 # Create a new PowerPoint presentation
 presentation = Presentation()
 
@@ -55,6 +63,6 @@ for i, step_text in enumerate(steps):
         paragraph.font.size = Pt(14)
 
 # Save the presentation
-file_path = "/mnt/data/AS-IS_Process_Map.pptx"
+file_path = "AS-IS_Process_Map.pptx"
 presentation.save(file_path)
-file_path
+print(f"Presentation saved to {file_path}")
