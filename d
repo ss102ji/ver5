@@ -1,7 +1,11 @@
 git clone https://github.com/ss102jing/airgrp1.1
 cd d
+python create_ppt.py
 
 pip install python-pptx
+git add create_ppt.py
+git commit -m "Added script to create PowerPoint presentation"
+git push origin main
 
 
 from pptx import Presentation
